@@ -5,31 +5,48 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.lang.annotation.ElementType;
+import java.util.stream.Stream;
 /**
  * Transformator
  */
 public class Transformator {
 
 
-    public <I, O> O tranformToDto(I input, Class<O> target) throws ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
-        
-        
-        System.out.println(target.getName());
-        Class<?> outClass = Class.forName(target.getName());
-        System.out.println(outClass.getName());
-        O outputObject = (O) outClass.getDeclaredConstructor().newInstance();
-        
-        Field[] sourceFields = outClass.getDeclaredFields();
-        // Method[] tm = outputClass.getDeclaredMethods();                
+    public <I, O> O tranformToDto(I input, Class<O> target) throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 
-        // String field = "nome";
-        String lookedUpMethodNamed = "setNome";
-        // System.out.println(outputClass.getDeclaredMethods()[1].getName());
-        Class<?>[] pn = outClass.getDeclaredMethods()[1].getParameterTypes();
-        Object testeTxt = input.getClass().getMethod("getNome").invoke(input);
-        outClass.getMethod(lookedUpMethodNamed, pn).invoke(outputObject, testeTxt);
+        O output = target.getConstructor().newInstance();
+        
+        Field[] sourceFields = input.getClass().getDeclaredFields();
+        //Stream<Field> targetFields = Arrays.stream(target.getDeclaredFields());
+        Arrays.stream(sourceFields).forEach(sourceField -> 
+            Arrays.stream(target.getDeclaredFields()).forEach(targetField -> 
+            {
+                boolean fieldsMatch = validate(sourceField, targetField);
+                if (fieldsMatch) {                    
+                    try {
+                        sourceField.setAccessible(true);
+                        targetField.setAccessible(true);
+                        targetField.set(output, sourceField.get(input));
+                        sourceField.setAccessible(false);
+                        targetField.setAccessible(false);
+                        return;
+                    } catch (IllegalArgumentException | IllegalAccessException e) {
+                        e.printStackTrace();
+                    }
 
-        return outputObject;
+                }
+            }));
+        return output;
     }
 
+    
+
+    private boolean validate(Field sourceField, Field targetField) {
+        if (sourceField.getName().equals(targetField.getName())
+         && sourceField.getType().equals(targetField.getType())   
+        ) {
+            return true;
+        }
+        return false;
+    }
 }
